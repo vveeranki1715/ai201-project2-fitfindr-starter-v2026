@@ -40,7 +40,7 @@
 ## What This Does
 
 <!-- Three or four sentences: what a user asks for, and what they get back. -->
-
+The user asks for a recommendation of the clothing, describing it in detail. They get back listings which are the details of clothes.
 
 
 ---
