@@ -59,24 +59,24 @@ The user asks for a recommendation of the clothing, describing it in detail. The
 
 ### `search_listings`
 
-- **What it does:**
-- **Inputs:** <!-- name and type each: `max_price` (float), not "a price" -->
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Searches the listings data for items matching a description and if given size and a price ceiling.
+- **Inputs:** <!-- name and type each: `max_price`(float), not "a price" --> description - string, size - string, max_price - float
+- **Returns:** a list of matching listing dicts, with fields - id, title, description, category, style_tags, size, condition, price(float), colors (list), brand (str or None), platform
+- **When it has nothing:** returns an empty list
 
 ### `suggest_outfit`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Suggests outfit from the given item, wardrobe
+- **Inputs:** new_item - a listing dict, wardrobe - a dict with items key
+- **Returns:** a string with outfit suggestions
+- **When it has nothing:** a general styling advice rather than raising or returning
 
 ### `create_fit_card`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Gives a short caption to post about the find
+- **Inputs:** outfit - string, new_item - the listing dict
+- **Returns:** a 2-4 sentence caption
+- **When it has nothing:** a descriptive message rather than raising
 
 ---
 
@@ -93,14 +93,13 @@ The user asks for a recommendation of the clothing, describing it in detail. The
      The grader checks your code against what you claim here, so the file and
      function have to be real. -->
 
-**Branch rule:**
+**Branch rule:** put a message in session["error"] saying what the user could change and return the session. Do not call suggest_outfit with empty result
 
 **Where it lives:** `agent.py::run_agent`
 
-**How the query is parsed:** <!-- regex, string splitting, or asking the model — say which -->
+**How the query is parsed:** <!-- regex, string splitting, or asking the model — say which --> asking the model
 
-**What moves through the session:** <!-- which fields, in what order -->
-
+**What moves through the session:** <!-- which fields, in what order --> session["selected_item"] and the wardrobe is passed as input to the suggest_outfit(). then session["outfit_suggestion"] and item is passed to create_fit_card()
 ---
 
 ## Sample Run
