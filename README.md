@@ -59,24 +59,24 @@ The user asks for a recommendation of the clothing, describing it in detail. The
 
 ### `search_listings`
 
-- **What it does:** Searches the listings data for items matching a description and if given size and a price ceiling.
-- **Inputs:** <!-- name and type each: `max_price`(float), not "a price" --> description - string, size - string, max_price - float
-- **Returns:** a list of matching listing dicts, with fields - id, title, description, category, style_tags, size, condition, price(float), colors (list), brand (str or None), platform
-- **When it has nothing:** returns an empty list
+- **What it does:** Searches the listings data for items matching a text description, optionally filtered by size and a price ceiling.
+- **Inputs:** `description` (str, required), `size` (str, optional, default `None` = any size), `max_price` (float, optional, default `None` = no limit)
+- **Returns:** A list of listing dicts, best match first. Each dict has `id` (str), `title` (str), `description` (str), `category` (str), `style_tags` (list of str), `size` (str), `condition` (str), `price` (float), `colors` (list of str), `brand` (str or `None`), `platform` (str). A listing is included only if it matches the description and passes the size and `max_price` filters.
+- **When it has nothing:** Returns an empty list `[]`. It never raises and never returns `None`.
 
 ### `suggest_outfit`
 
-- **What it does:** Suggests outfit from the given item, wardrobe
-- **Inputs:** new_item - a listing dict, wardrobe - a dict with items key
-- **Returns:** a string with outfit suggestions
-- **When it has nothing:** a general styling advice rather than raising or returning
+- **What it does:** Suggests how to style a found listing with pieces the user already owns.
+- **Inputs:** `new_item` (dict, one listing dict from `search_listings`), `wardrobe` (dict with an `items` key holding a list of dicts, each with `id`, `name`, `category`, `colors`, `style_tags`, and optional `notes`)
+- **Returns:** A plain-text string of 2-3 outfit ideas, each naming the specific wardrobe items it uses.
+- **When it has nothing:** If `wardrobe["items"]` is empty, returns a string of general styling advice for `new_item` alone. It never raises.
 
 ### `create_fit_card`
 
-- **What it does:** Gives a short caption to post about the find
-- **Inputs:** outfit - string, new_item - the listing dict
-- **Returns:** a 2-4 sentence caption
-- **When it has nothing:** a descriptive message rather than raising
+- **What it does:** Writes a short, shareable social caption about the thrifted find and the outfit.
+- **Inputs:** `outfit` (str, the text returned by `suggest_outfit`), `new_item` (dict, the listing dict)
+- **Returns:** A string of 2-4 sentences that mentions the item's title, price, and platform.
+- **When it has nothing:** If `outfit` is empty, returns a caption built from `new_item` alone. It never raises.
 
 ---
 
@@ -93,13 +93,14 @@ The user asks for a recommendation of the clothing, describing it in detail. The
      The grader checks your code against what you claim here, so the file and
      function have to be real. -->
 
-**Branch rule:** put a message in session["error"] saying what the user could change and return the session. Do not call suggest_outfit with empty result
+**Branch rule:** If `search_listings` returns an empty list, set `session["error"]` to a message telling the user what to change (a looser description, a larger size range, or a higher `max_price`), return the session, and do not call `suggest_outfit`. Otherwise, set `session["selected_item"]` to the first result and go to `suggest_outfit`.
 
 **Where it lives:** `agent.py::run_agent`
 
-**How the query is parsed:** <!-- regex, string splitting, or asking the model — say which --> asking the model
+**How the query is parsed:** Asking the model: it extracts `description`, `size`, and `max_price` from the user's query.
 
-**What moves through the session:** <!-- which fields, in what order --> session["selected_item"] and the wardrobe is passed as input to the suggest_outfit(). then session["outfit_suggestion"] and item is passed to create_fit_card()
+**What moves through the session:** In order: `session["selected_item"]` and the wardrobe go into `suggest_outfit`; its result is stored in `session["outfit_suggestion"]`; then `outfit_suggestion` and `selected_item` go into `create_fit_card`.
+
 ---
 
 ## Sample Run
