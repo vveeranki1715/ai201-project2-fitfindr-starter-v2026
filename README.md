@@ -120,19 +120,31 @@ $ python app.py ask '...'
 **The three tools, tested one at a time**
 
 ```
-$ python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
+$ python -c "from tools import search_listings; print([(r['id'], r['title'], r['price']) for r in search_listings('graphic tee', max_price=30)][:3])"
+[('lst_006', 'Graphic Tee — 2003 Tour Bootleg Style', 24.0), ('lst_002', 'Y2K Baby Tee — Butterfly Print', 18.0), ('lst_033', 'Vintage Band Tee — Faded Grey', 19.0)]
 
+$ python -c "from tools import search_listings; print(search_listings('designer ballgown', size='XXS', max_price=5))"
+[]
 ```
 
 ```
-$ python -c "from tools import suggest_outfit; ..."
-
+$ python -c "from tools import suggest_outfit; from utils.data_loader import get_empty_wardrobe, load_listings; print(suggest_outfit(load_listings()[5], get_empty_wardrobe()))"
+**Outfit 1: Grunge Streetwear**
+*   Layer the graphic tee over a fitted long-sleeve white cotton shirt.
+*   Pair with high-waisted black distressed denim and beat-up canvas sneakers.
+...
 ```
 
-```
-$ python -c "from tools import create_fit_card; ..."
+(The same command with `get_example_wardrobe()` names wardrobe pieces, for example "baggy straight-leg jeans" and "the brown leather belt".)
 
 ```
+$ AI201_CACHE=0 python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('jeans and white sneakers', load_listings()[5]))"
+Channeling major early 2000s festival energy with this bootleg tour graphic tee. ... Grab it on my depop for just $24 ...
+```
+
+Run three times with the cache on, the card was word-for-word identical: the
+cache returned the first answer. With `AI201_CACHE=0` the three cards were
+different (TEMPERATURE is 0.9, so it was never the temperature).
 
 ---
 
