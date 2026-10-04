@@ -13,10 +13,13 @@ Build and test your three tools in `tools.py` first. Then come here.
     python agent.py          runs both example paths below
 """
 
+import json
+import re
+
 import config
 import trace
 from tools import search_listings, suggest_outfit, create_fit_card
-from generate import ModelUnavailable
+from generate import ModelUnavailable, generate
 
 
 # ── session state ─────────────────────────────────────────────────────────────
@@ -107,9 +110,89 @@ def run_agent(query: str, wardrobe: dict) -> dict:
     """
     session = new_session(query, wardrobe)
 
-    # TODO: delete these two lines and build the loop.
-    session["error"] = "The planning loop isn't built yet — see the TODO in agent.py."
-    return session
+    count = 0
+    while True:
+        count += 1
+        trace.check_iterations(count)
+
+        # Each pass looks at the session and decides the next step.
+        if not session["parsed"]:
+            session["parsed"] = _parse_query(session["query"])
+
+        elif not session["search_results"]:
+            parsed = session["parsed"]
+            session["search_results"] = search_listings(
+                parsed["description"], parsed["size"], parsed["max_price"]
+            )
+            if not session["search_results"]:
+                # The branch: nothing found, so nothing for suggest_outfit to style.
+                session["error"] = _no_results_message(parsed)
+                return session
+
+        elif session["selected_item"] is None:
+            session["selected_item"] = session["search_results"][0]
+
+        elif session["outfit_suggestion"] is None:
+            session["outfit_suggestion"] = suggest_outfit(
+                session["selected_item"], session["wardrobe"]
+            )
+
+        elif session["fit_card"] is None:
+            session["fit_card"] = create_fit_card(
+                session["outfit_suggestion"], session["selected_item"]
+            )
+
+        else:
+            return session
+
+
+def _parse_query(query: str) -> dict:
+    """Ask the model for description / size / max_price; fall back to regex."""
+    prompt = (
+        "Extract search fields from this clothing request. Reply with JSON only, "
+        'in the form {"description": str, "size": str or null, "max_price": '
+        "number or null}. description holds only the item keywords (no size, no "
+        f"price). Request: {query}"
+    )
+    try:
+        raw = generate(prompt, temperature=0.0)
+        data = json.loads(re.search(r"\{.*\}", raw, re.S).group(0))
+        description = str(data.get("description") or "").strip()
+        size = data.get("size")
+        price = data.get("max_price")
+        if description:
+            return {
+                "description": description,
+                "size": str(size).strip() if size else None,
+                "max_price": float(price) if price is not None else None,
+            }
+    except ModelUnavailable:
+        raise
+    except Exception:  # noqa: BLE001 — malformed JSON etc.; use the regex parse
+        pass
+    return _parse_query_regex(query)
+
+
+def _parse_query_regex(query: str) -> dict:
+    price = re.search(r"(?:under|below|less than|max|<)\s*\$?\s*(\d+(?:\.\d+)?)", query, re.I)
+    size = re.search(r"\bsize\s+([A-Za-z0-9./]+(?:\s\d+(?:\.\d+)?)?)|\bin\s+(XXS|XS|S|M|L|XL|XXL)\b", query, re.I)
+    description = re.sub(r"(under|below|less than|max)\s*\$?\s*\d+(\.\d+)?", "", query, flags=re.I)
+    description = re.sub(r"\bsize\s+\S+|\bin\s+(XXS|XS|S|M|L|XL|XXL)\b", "", description, flags=re.I)
+    return {
+        "description": description.strip(" ,.") or query,
+        "size": (size.group(1) or size.group(2)) if size else None,
+        "max_price": float(price.group(1)) if price else None,
+    }
+
+
+def _no_results_message(parsed: dict) -> str:
+    """Name each constraint the user could relax."""
+    changes = [f'try broader keywords than "{parsed["description"]}"']
+    if parsed["size"]:
+        changes.append(f'drop or widen the size "{parsed["size"]}"')
+    if parsed["max_price"] is not None:
+        changes.append(f"raise your ${parsed['max_price']:g} price limit")
+    return "Nothing matched that search. To find something, " + ", or ".join(changes) + "."
 
 
 # ── running it directly ───────────────────────────────────────────────────────
