@@ -115,9 +115,27 @@ FitFindr is a thrift-shopping agent. A user describes what they want in plain la
 **One full query**
 
 ```
-$ python app.py ask '...'
+$ python app.py ask 'vintage graphic tee under $30, size L'
 
+  Found:    Graphic Tee — 2003 Tour Bootleg Style — $24.0 on depop
+
+  Outfit:   **Outfit 1: 90s Grunge**
+* Graphic tee tucked into baggy straight-leg jeans with the brown leather belt.
+* Layered under the vintage black denim jacket and finished with black combat boots. 
+
+**Outfit 2: Streetwear Contrast**
+* Graphic tee paired with wide-leg khaki trousers.
+* Layered under the black cropped zip hoodie and styled with chunky white sneakers and the black crossbody bag.
+
+  Fit card: Found this sick 2003 tour bootleg graphic tee and knew I had to grab it. It’s got that heavy lived-in metal vibe and I'm obsessed. Just dropped it on my depop for $24 before I change my mind and keep it.
+
+1 model calls this session, 2 served from cache, 63 prompt + 28 output tokens
 ```
+
+Produced by `agent.py::run_agent` (query parsed by `_parse_query`, then
+`search_listings`, `suggest_outfit` and `create_fit_card` in `tools.py`). The
+outfit and fit card came from the cache because I had run this same query
+earlier.
 
 **The three tools, tested one at a time**
 
