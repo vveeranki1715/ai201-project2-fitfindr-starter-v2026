@@ -40,7 +40,7 @@
 ## What This Does
 
 <!-- Three or four sentences: what a user asks for, and what they get back. -->
-The user asks for a recommendation of the clothing, describing it in detail. They get back listings which are the details of clothes.
+FitFindr is a thrift-shopping agent. A user describes what they want in plain language, for example "vintage graphic tee under $30, size L". The agent searches a set of 40 secondhand listings, picks the best match, suggests outfits that combine it with pieces from the user's wardrobe, and writes a short shareable caption (a "fit card") about the find. If nothing matches, it stops early and tells the user which constraint to loosen: the keywords, the size or the price limit.
 
 
 ---
@@ -76,7 +76,7 @@ The user asks for a recommendation of the clothing, describing it in detail. The
 - **What it does:** Writes a short, shareable social caption about the thrifted find and the outfit.
 - **Inputs:** `outfit` (str, the text returned by `suggest_outfit`), `new_item` (dict, the listing dict)
 - **Returns:** A string of 2-4 sentences that mentions the item's title, price, and platform.
-- **When it has nothing:** If `outfit` is empty, returns a caption built from `new_item` alone. It never raises.
+- **When it has nothing:** If `outfit` is empty or whitespace, returns a plain message saying there is no outfit suggestion to write a caption from. It does not call the model and never raises.
 
 ---
 
@@ -95,9 +95,11 @@ The user asks for a recommendation of the clothing, describing it in detail. The
 
 **Branch rule:** If `search_listings` returns an empty list, set `session["error"]` to a message telling the user what to change (a looser description, a larger size range, or a higher `max_price`), return the session, and do not call `suggest_outfit`. Otherwise, set `session["selected_item"]` to the first result and go to `suggest_outfit`.
 
-**Where it lives:** `agent.py::run_agent`
+**Where it lives:** `agent.py::run_agent` (the message is built by `agent.py::_no_results_message`, which names only the constraints the user actually gave).
 
-**How the query is parsed:** Asking the model: it extracts `description`, `size`, and `max_price` from the user's query.
+**How the loop runs:** `run_agent` is a `while` loop. Each pass looks at the session and runs the first step whose field is still empty: parse, search, select, suggest, fit card. `trace.check_iterations` runs every pass and stops the loop past `MAX_ITERATIONS`.
+
+**How the query is parsed:** Asking the model (`agent.py::_parse_query`): it extracts `description`, `size`, and `max_price` as JSON at temperature 0. If the reply isn't valid JSON, `_parse_query_regex` does the parse instead.
 
 **What moves through the session:** In order: `session["selected_item"]` and the wardrobe go into `suggest_outfit`; its result is stored in `session["outfit_suggestion"]`; then `outfit_suggestion` and `selected_item` go into `create_fit_card`.
 
@@ -159,15 +161,15 @@ different (TEMPERATURE is 0.9, so it was never the temperature).
 
 **Moment 1**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* `create_fit_card`, then a run of it three times on the same item, to check the output varies as the brief says it should.
+- *What came back:* Claude's first version returned a good caption, but all three runs were word-for-word identical. I suspected `TEMPERATURE`. Claude checked `config.py`: it was already 0.9, so that wasn't it. Claude then re-ran the same command with `AI201_CACHE=0` and got three different captions, which showed the adapter's cache was returning the first answer.
+- *What I changed:* Nothing in the code. `create_fit_card` was correct and the cache was the cause. I now run with `AI201_CACHE=0` whenever I'm checking variation, and I recorded this in Sample Run. It also confirmed that the evaluation runs in the next unit must turn the cache off.
 
 **Moment 2**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* `search_listings` filtering on description, size and price, where the starter warned that a plain substring size test would match the wrong things.
+- *What came back:* Claude matched sizes by whole tokens, so "M" matches `M`, `S/M` and `M/L` but not `XL` or `W28`. It also added a synonym so "tee" matches "t-shirt". When I ran "graphic tee" under $30, the results also included a flannel shirt and a polo, because "shirt" was one of the synonyms.
+- *What I changed:* I kept the size matching as written. I recorded the loose keyword match as a known limitation instead of removing "shirt" from the synonyms. The true graphic tees still rank first, and it affects which result is picked only if no tee matches. If criterion 1 misses in the next unit, this is the first place I will look.
 
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 
